@@ -81,6 +81,7 @@ st.title("Resume Matching Tool📃📃")
 st.sidebar.write("## Upload Resumes PDF")
 resumes_files = st.sidebar.file_uploader(
     "Upload Resumes PDF", type=["pdf"], accept_multiple_files=True)
+print("Resumes Uploaded:", resumes_files)
 
 if resumes_files:
     # Sidebar - File Upload for Job Descriptions
@@ -96,6 +97,7 @@ if resumes_files:
         # Backend Processing
         job_description_text = extract_text_from_pdf(job_descriptions_file)
         resumes_texts = [extract_text_from_pdf(resume_file) for resume_file in resumes_files]
+        print("Resumes Texts:", resumes_texts)
 
         # Calculate skills for all resumes
         all_resumes_skills = [extract_skills(resume_text) for resume_text in resumes_texts]
