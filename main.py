@@ -87,6 +87,10 @@ st.sidebar.write("## Upload Resumes PDF")
 resumes_files = st.sidebar.file_uploader(
     "Upload Resumes PDF", type=["pdf"], accept_multiple_files=True)
 
+# Sidebar - Sorting Options
+sort_options = ['Similarity Score', 'CGPA', 'Total Score']
+selected_sort_option = st.sidebar.selectbox("Sort results by", sort_options)
+
 # Backend Processing
 if job_descriptions_file is not None and resumes_files is not None:
     job_description_text = extract_text_from_pdf(job_descriptions_file)
@@ -119,8 +123,16 @@ if job_descriptions_file is not None and resumes_files is not None:
     # Create a DataFrame
     results_df = pd.DataFrame(results_data)
 
-    # Display the results table
-    st.subheader("Results Table:")
+    # Sort the DataFrame based on user-selected option
+    if selected_sort_option == 'Similarity Score':
+        results_df = results_df.sort_values(by='Similarity Score', ascending=False)
+    elif selected_sort_option == 'CGPA':
+        results_df = results_df.sort_values(by='CGPA', ascending=False)
+    else:
+        results_df = results_df.sort_values(by='Total Score', ascending=False)
+
+    # Display the sorted results table
+    st.subheader(f"Results Table (Sorted by {selected_sort_option}):")
     st.table(results_df)
 
     # Create a DataFrame for skills distribution
@@ -151,3 +163,4 @@ if job_descriptions_file is not None and resumes_files is not None:
     st.pyplot(fig)
 else:
     st.write("Upload the Job Description and Resumes PDF files to see the results.")
+
