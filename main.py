@@ -1,5 +1,3 @@
-# Modified code for Google Colab with Streamlit
-
 from collections import Counter
 import streamlit as st
 import nltk
