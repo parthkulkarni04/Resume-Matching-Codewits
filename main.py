@@ -1,11 +1,12 @@
+# Modified code for Google Colab with Streamlit
+
 from collections import Counter
 import streamlit as st
-import os
 import nltk
 from gensim.models.doc2vec import Doc2Vec, TaggedDocument
 from nltk.tokenize import word_tokenize
 from collections import Counter
-
+import io
 import PyPDF2
 import pandas as pd
 import re  # Added import for regular expressions
@@ -76,171 +77,77 @@ def v_spacer(height, sb=False) -> None:
 # Streamlit Frontend
 st.title("Resume Matching Tool📃📃")
 
-# Sidebar - Select Job Descriptions Folder
-job_descriptions_folder = st.sidebar.text_input(
-    "Enter the path or name of the job descriptions folder")
+# Sidebar - File Upload for Job Descriptions
+st.sidebar.write("## Upload Job Description PDF")
+job_descriptions_file = st.sidebar.file_uploader(
+    "Upload Job Description PDF", type=["pdf"])
 
-# Sidebar - Select Resumes Folder
-resumes_folder = st.sidebar.text_input(
-    "Enter the path or name of the resumes folder")
-
-# # Sidebar - Select Excel Output Folder
-# output_folder = st.sidebar.text_input(
-#     "Enter the path or name of the output folder for Excel file", "./")
-
-# Sidebar - Sorting Options
-sort_options = ['Similarity Score', 'CGPA', 'Total Score']
-selected_sort_option = st.sidebar.selectbox("Sort results by", sort_options)
-
-job_descriptions_files = [os.path.join(job_descriptions_folder, file) for file in os.listdir(
-    job_descriptions_folder) if file.endswith(".pdf")]
-selected_job_file = st.sidebar.selectbox(
-    "Choose a job description", job_descriptions_files, format_func=lambda x: os.path.basename(x))
-selected_job_text = extract_text_from_pdf(selected_job_file)
+# Sidebar - File Upload for Resumes
+st.sidebar.write("## Upload Resumes PDF")
+resumes_files = st.sidebar.file_uploader(
+    "Upload Resumes PDF", type=["pdf"], accept_multiple_files=True)
 
 # Backend Processing
-resumes_files = [os.path.join(resumes_folder, file) for file in os.listdir(
-    resumes_folder) if file.endswith(".pdf")]
-resumes_texts = [extract_text_from_pdf(
-    resume_path) for resume_path in resumes_files]
-# Calculate skills for all resumes
-all_resumes_skills = [extract_skills(resume_text)
-                      for resume_text in resumes_texts]
+if job_descriptions_file is not None and resumes_files is not None:
+    job_description_text = extract_text_from_pdf(job_descriptions_file)
+    resumes_texts = [extract_text_from_pdf(resume_file) for resume_file in resumes_files]
 
-tagged_resumes = [TaggedDocument(words=preprocess_text(
-    text), tags=[str(i)]) for i, text in enumerate(resumes_texts)]
-model_resumes = train_doc2vec_model(tagged_resumes)
+    # Calculate skills for all resumes
+    all_resumes_skills = [extract_skills(resume_text) for resume_text in resumes_texts]
 
-results_data = {'Resume': [], 'Similarity Score': [],
-                'CGPA': [], 'Total Score': [], 'Email': [], 'Contact': []}
+    tagged_resumes = [TaggedDocument(words=preprocess_text(text), tags=[str(i)]) for i, text in enumerate(resumes_texts)]
+    model_resumes = train_doc2vec_model(tagged_resumes)
 
-for i, resume_text in enumerate(resumes_texts):
-    similarity_score = calculate_similarity(
-        model_resumes, resume_text, selected_job_text)
-    cgpa_values = extract_cgpa(resume_text)
-    cgpa = ', '.join(map(str, cgpa_values)) if cgpa_values else '0'
-    results_data['Resume'].append(os.path.basename(resumes_files[i]))
-    smScore = similarity_score * 100
-    total_score = smScore + sum(cgpa_values)
-    results_data['Similarity Score'].append(smScore)
-    results_data['CGPA'].append(cgpa)
-    results_data['Total Score'].append(total_score)
+    results_data = {'Resume': [], 'Similarity Score': [], 'CGPA': [], 'Total Score': [], 'Email': [], 'Contact': []}
 
-    emails = ', '.join(re.findall(email_pattern, resume_text))
-    contacts = ', '.join(re.findall(phone_pattern, resume_text))
-    results_data['Email'].append(emails)
-    results_data['Contact'].append(contacts)
+    for i, resume_text in enumerate(resumes_texts):
+        similarity_score = calculate_similarity(model_resumes, resume_text, job_description_text)
+        cgpa_values = extract_cgpa(resume_text)
+        cgpa = ', '.join(map(str, cgpa_values)) if cgpa_values else '0'
+        results_data['Resume'].append(f"Resume {i+1}")
+        smScore = similarity_score * 100
+        total_score = smScore + sum(cgpa_values)
+        results_data['Similarity Score'].append(smScore)
+        results_data['CGPA'].append(cgpa)
+        results_data['Total Score'].append(total_score)
 
-# Create a DataFrame
-results_df = pd.DataFrame(results_data)
+        emails = ', '.join(re.findall(email_pattern, resume_text))
+        contacts = ', '.join(re.findall(phone_pattern, resume_text))
+        results_data['Email'].append(emails)
+        results_data['Contact'].append(contacts)
 
-# Sort the DataFrame based on user-selected option
-if selected_sort_option == 'Similarity Score':
-    results_df = results_df.sort_values(by='Similarity Score', ascending=False)
-elif selected_sort_option == 'CGPA':
-    results_df = results_df.sort_values(by='CGPA', ascending=False)
-else:
-    results_df = results_df.sort_values(by='Total Score', ascending=False)
-# Display the results table with job description name
-st.subheader(
-    f"Results Table for Job: {os.path.basename(selected_job_file)} (sorted by {selected_sort_option} in descending order):")
-# st.table(results_df)
+    # Create a DataFrame
+    results_df = pd.DataFrame(results_data)
 
-# Save the results DataFrame to an Excel file
-# Save the results DataFrame to an Excel file
-# excel_filename = os.path.join(output_folder, "results.xlsx")
-# results_df.to_excel(excel_filename, index=False)
+    # Display the results table
+    st.subheader("Results Table:")
+    st.table(results_df)
 
-# Display some information for debugging
-st.write("Debug Information:")
-# st.write(f"Excel Filename: {excel_filename}")
-st.write("Contents of results_df:")
-st.write(results_df)
+    # Create a DataFrame for skills distribution
+    skills_distribution_data = {'Resume': [], 'Skill': [], 'Frequency': []}
+    for i, resume_skills in enumerate(all_resumes_skills):
+        for skill in set(resume_skills):
+            skills_distribution_data['Resume'].append(f"Resume {i+1}")
+            skills_distribution_data['Skill'].append(skill)
+            skills_distribution_data['Frequency'].append(resume_skills.count(skill))
 
-# # Create a download button for the Excel file
-# st.download_button(
-#     label="Download Results as Excel",
-#     data=excel_filename,
-#     key="download_button",
-#     file_name="results.xlsx"  # Specify the file name here
-# )
+    skills_distribution_df = pd.DataFrame(skills_distribution_data)
 
-# # Create a download link for the Excel file (alternative approach)
-# st.markdown(
-#     f'<a href="{excel_filename}" download="results.xlsx">Download Results as Excel</a>', unsafe_allow_html=True)
+    # Pivot the DataFrame for heatmap
+    skills_heatmap_df = skills_distribution_df.pivot(index='Resume', columns='Skill', values='Frequency').fillna(0)
 
-# Create a DataFrame for skills distribution
-skills_distribution_data = {'Resume': [], 'Skill': [], 'Frequency': []}
-for i, resume_skills in enumerate(all_resumes_skills):
-    for skill in set(resume_skills):
-        skills_distribution_data['Resume'].append(
-            os.path.basename(resumes_files[i]))
-        skills_distribution_data['Skill'].append(skill)
-        skills_distribution_data['Frequency'].append(
-            resume_skills.count(skill))
+    # Normalize the values for better visualization
+    skills_heatmap_df_normalized = skills_heatmap_df.div(skills_heatmap_df.sum(axis=1), axis=0)
 
-skills_distribution_df = pd.DataFrame(skills_distribution_data)
+    # Plot the heatmap
+    fig, ax = plt.subplots(figsize=(12, 8))
 
-# Pivot the DataFrame for heatmap
-skills_heatmap_df = skills_distribution_df.pivot(
-    index='Resume', columns='Skill', values='Frequency').fillna(0)
-
-# Normalize the values for better visualization
-skills_heatmap_df_normalized = skills_heatmap_df.div(
-    skills_heatmap_df.sum(axis=1), axis=0)
-
-# Find the index of the highest similarity score
-highest_score_index = results_df['Similarity Score'].idxmax()
-highest_score_resume = resumes_files[highest_score_index]
-
-# Details of Highest Similarity Score
-st.subheader("\nDetails of Highest Similarity Score Resume:")
-st.write(f"Resume Name: {os.path.basename(highest_score_resume)}")
-st.write(
-    f"Similarity Score: {results_df.loc[highest_score_index, 'Similarity Score']:.2f}")
-
-# Check if 'CGPA' column exists in the DataFrame
-if 'CGPA' in results_df.columns:
-    cgpa_value = results_df.loc[highest_score_index, 'CGPA']
-    st.write(f"CGPA: {cgpa_value}" if pd.notnull(
-        cgpa_value) else "CGPA: Not Mentioned")
-else:
-    st.write("CGPA: Not Mentioned")
-
-# Check if 'Total Score' column exists in the DataFrame
-if 'Total Score' in results_df.columns:
-    total_score_value = results_df.loc[highest_score_index, 'Total Score']
-    st.write(f"Total Score: {total_score_value:.2f}" if pd.notnull(
-        total_score_value) else "Total Score: Not Mentioned")
-else:
-    st.write("Total Score: Not Mentioned")
-
-# Check if 'Email' column exists in the DataFrame
-if 'Email' in results_df.columns:
-    email_value = results_df.loc[highest_score_index, 'Email']
-    st.write(f"Email: {email_value}" if pd.notnull(
-        email_value) else "Email: Not Mentioned")
-else:
-    st.write("Email: Not Mentioned")
-
-# Check if 'Contact' column exists in the DataFrame
-if 'Contact' in results_df.columns:
-    contact_value = results_df.loc[highest_score_index, 'Contact']
-    st.write(f"Contact: {contact_value}" if pd.notnull(
-        contact_value) else "Contact: Not Mentioned")
-else:
-    st.write("Contact: Not Mentioned")
-
-# Plot the heatmap
-fig, ax = plt.subplots(figsize=(12, 8))
-
-# Wrap the heatmap plot in a container with a scroll bar
-with st.container():
-    sns.heatmap(skills_heatmap_df_normalized,
-                cmap='YlGnBu', annot=True, fmt=".2f", ax=ax)
+    sns.heatmap(skills_heatmap_df_normalized, cmap='YlGnBu', annot=True, fmt=".2f", ax=ax)
     ax.set_title('Heatmap for Skills Distribution')
     ax.set_xlabel('Resume')
     ax.set_ylabel('Skill')
 
-# Display the Matplotlib figure using st.pyplot()
-st.pyplot(fig)
+    # Display the Matplotlib figure using st.pyplot()
+    st.pyplot(fig)
+else:
+    st.write("Upload the Job Description and Resumes PDF files to see the results.")
