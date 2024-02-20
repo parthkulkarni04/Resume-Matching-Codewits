@@ -9,9 +9,6 @@ import pandas as pd
 import re
 import matplotlib.pyplot as plt
 import seaborn as sns
-import torch
-from transformers import BertTokenizer, BertForTokenClassification
-from transformers import pipeline
 
 nltk.download('punkt')
 
@@ -66,14 +63,23 @@ def accuracy_calculation(true_positives, false_positives, false_negatives):
     return accuracy
 
 
-def extract_cgpa(text):
-    cgpa_pattern = r'\b(?:CGPA|GPA|C.G.PA|Cumulative GPA)\s*:?[\s-]*([0-9]+\.[0.9]+|[0-9]+)\b'
-    match = re.search(cgpa_pattern, text, re.IGNORECASE)
+def extract_cgpa(resume_text):
+    # Define a regular expression pattern for CGPA extraction
+    cgpa_pattern = r'\b(?:CGPA|GPA|C.G.PA|Cumulative GPA)\s*:?[\s-]* ([0-9]+(?:\.[0-9]+)?)\b|\b([0-9]+(?:\.[0-9]+)?)\s*(?:CGPA|GPA)\b'
+
+    # Search for CGPA pattern in the text
+    match = re.search(cgpa_pattern, resume_text, re.IGNORECASE)
+
+    # Check if a match is found
     if match:
-        cgpa = float(match.group(1))
-        return cgpa
+        cgpa = match.group(1)
+        if cgpa is not None:
+            return float(cgpa)
+        else:
+            return float(match.group(2))
     else:
         return None
+
 
 
 email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
@@ -173,7 +179,7 @@ if resumes_files:
         st.subheader(f"Results Table (Sorted by {selected_sort_option}):")
 
         # Define a custom function to highlight maximum values in the specified columns
-        def highlight_max(data, color='red'):
+        def highlight_max(data, color='grey'):
             is_max = data == data.max()
             return [f'background-color: {color}' if val else '' for val in is_max]
 
@@ -225,8 +231,8 @@ if resumes_files:
             true_positives_email, false_positives_email, false_negatives_email)
 
         st.subheader("\nAccuracy Calculation:")
-        st.write(f"Mobile Number Accuracy: {mobile_accuracy:.2%}")
-        st.write(f"Email Accuracy: {email_accuracy:.2%}")
+        # st.write(f"Mobile Number Accuracy: {mobile_accuracy:.2%}")
+        # st.write(f"Email Accuracy: {email_accuracy:.2%}")
 
         # Get skills keywords from user input
         skills_keywords_input = st.text_input(
@@ -245,9 +251,9 @@ if resumes_files:
                     resume_text_similarity_scores.append(similarity_score)
                 skills_similarity_scores.append(resume_text_similarity_scores)
 
-            # Create a DataFrame with the similarity scores
+            # Create a DataFrame with the similarity scores and set the index to the names of the PDFs
             skills_similarity_df = pd.DataFrame(
-                skills_similarity_scores, columns=skills_keywords)
+                skills_similarity_scores, columns=skills_keywords, index=[resume_file.name for resume_file in resumes_files])
 
             # Plot the heatmap
             fig, ax = plt.subplots(figsize=(12, 8))
@@ -257,6 +263,9 @@ if resumes_files:
             ax.set_title('Heatmap for Skills Similarity')
             ax.set_xlabel('Skills')
             ax.set_ylabel('Resumes')
+
+            # Rotate the y-axis labels for better readability
+            plt.yticks(rotation=0)
 
             # Display the Matplotlib figure using st.pyplot()
             st.pyplot(fig)
