@@ -230,7 +230,7 @@ if resumes_files:
         email_accuracy = accuracy_calculation(
             true_positives_email, false_positives_email, false_negatives_email)
 
-        st.subheader("\nAccuracy Calculation:")
+        st.subheader("\nHeatmap:")
         # st.write(f"Mobile Number Accuracy: {mobile_accuracy:.2%}")
         # st.write(f"Email Accuracy: {email_accuracy:.2%}")
 
