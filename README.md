@@ -63,7 +63,7 @@ pip install -r requirements.txt
 ## Run the Streamlit BERT Version 
 
 ```bash
-streamlit run app.py
+streamlit run BERT.py
 ```
 
 ## Run the Streamlit Doc2Vec Version 
