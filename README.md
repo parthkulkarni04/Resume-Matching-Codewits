@@ -53,12 +53,6 @@ venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-6. Run the Streamlit application:
-
-```bash
-streamlit run app.py
-```
-
 ## Usage
 
 1. Upload resumes and a job description in PDF format.
@@ -66,12 +60,16 @@ streamlit run app.py
 3. Generate a heatmap to visualize the similarity between skills keywords and resumes.
 4. Download the results as a CSV file
 
-## Doc2Vec Version
+## Run the Streamlit BERT Version 
+
+```bash
+streamlit run app.py
+```
+
+## Run the Streamlit Doc2Vec Version 
 
 There is also an older version of the application available in the repository. This version only uses Doc2Vec instead of BERT for extraction, which makes it faster but not as accurate as the current version. You can run that using the following command.
 
 ```bash
 streamlit run doc2vec.py
 ```
-
-
