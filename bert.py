@@ -13,10 +13,6 @@ import spacy
 # Download necessary NLTK data
 nltk.download('punkt')
 
-# Load the pre-trained NLP model
-nlp_model_path = "en_Resume_Matching_Keywords"
-nlp = spacy.load(nlp_model_path)
-
 # Define regular expressions for pattern matching
 float_regex = re.compile(r'^\d{1,2}(\.\d{1,2})?$')
 email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
@@ -89,6 +85,10 @@ if resumes_files:
     job_descriptions_file = st.sidebar.file_uploader("Upload Job Description PDF", type=["pdf"])
 
     if job_descriptions_file:
+        # Load the pre-trained NLP model
+        nlp_model_path = "en_Resume_Matching_Keywords"
+        nlp = spacy.load(nlp_model_path)
+
         # Backend Processing
         job_description_text = extract_text_from_pdf(job_descriptions_file)
         resumes_texts = [extract_text_from_pdf(resume_file) for resume_file in resumes_files]
