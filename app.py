@@ -1,3 +1,4 @@
+# Import necessary libraries
 import streamlit as st
 import nltk
 from gensim.models.doc2vec import Doc2Vec, TaggedDocument
@@ -8,24 +9,21 @@ import re
 import matplotlib.pyplot as plt
 import seaborn as sns
 import spacy
-import re
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
 
+# Download necessary NLTK data
 nltk.download('punkt')
 
-
+# Load the pre-trained NLP model
 nlp_model_path = "en_Resume_Matching_Keywords"
 nlp = spacy.load(nlp_model_path)
 
+# Define regular expressions for pattern matching
 float_regex = re.compile(r'^\d{1,2}(\.\d{1,2})?$')
 email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
 float_digit_regex = re.compile(r'^\d{10}$')
-email_with_phone_regex = email_with_phone_regex = re.compile(
-    r'(\d{10}).|.(\d{10})')
+email_with_phone_regex = re.compile(r'(\d{10}).|.(\d{10})')
 
-
+# Function to extract text from a PDF file
 def extract_text_from_pdf(pdf_file):
     pdf_reader = PyPDF2.PdfReader(pdf_file)
     text = ""
@@ -33,65 +31,49 @@ def extract_text_from_pdf(pdf_file):
         text += pdf_reader.pages[page_num].extract_text()
     return text
 
-
+# Function to tokenize text using the NLP model
 def tokenize_text(text, nlp_model):
     doc = nlp_model(text, disable=["tagger", "parser"])
     tokens = [(token.text.lower(), token.label_) for token in doc.ents]
     return tokens
 
-
+# Function to extract CGPA from a resume
 def extract_cgpa(resume_text):
-    # Define a regular expression pattern for CGPA extraction
     cgpa_pattern = r'\b(?:CGPA|GPA|C\.G\.PA|Cumulative GPA)\s*:?[\s-]([0-9]+(?:\.[0-9]+)?)\b|\b([0-9]+(?:\.[0-9]+)?)\s(?:CGPA|GPA)\b'
-
-    # Search for CGPA pattern in the text
     match = re.search(cgpa_pattern, resume_text, re.IGNORECASE)
-
-    # Check if a match is found
     if match:
-        # Extract CGPA value
         cgpa = match.group(1) if match.group(1) else match.group(2)
         return float(cgpa)
     else:
         return None
 
-
+# Function to extract skills from a resume
 def extract_skills(text, skills_keywords):
-    skills = [skill.lower()
-              for skill in skills_keywords if re.search(r'\b' + re.escape(skill.lower()) + r'\b', text.lower())]
+    skills = [skill.lower() for skill in skills_keywords if re.search(r'\b' + re.escape(skill.lower()) + r'\b', text.lower())]
     return skills
 
-
+# Function to preprocess text
 def preprocess_text(text):
     return word_tokenize(text.lower())
 
-
-
-
-
+# Function to train a Doc2Vec model
 def train_doc2vec_model(documents):
     model = Doc2Vec(vector_size=20, min_count=2, epochs=50)
     model.build_vocab(documents)
-    model.train(documents, total_examples=model.corpus_count,
-                epochs=model.epochs)
+    model.train(documents, total_examples=model.corpus_count, epochs=model.epochs)
     return model
 
-
+# Function to calculate similarity between two texts
 def calculate_similarity(model, text1, text2):
     vector1 = model.infer_vector(preprocess_text(text1))
     vector2 = model.infer_vector(preprocess_text(text2))
     return model.dv.cosine_similarities(vector1, [vector2])[0]
 
-
+# Function to calculate accuracy
 def accuracy_calculation(true_positives, false_positives, false_negatives):
     total = true_positives + false_positives + false_negatives
     accuracy = true_positives / total if total != 0 else 0
     return accuracy
-
-
-
-
-
 
 # Streamlit Frontend
 st.markdown("# Resume Matching Tool 📃📃")
@@ -99,25 +81,19 @@ st.markdown("An application to match resumes with a job description.")
 
 # Sidebar - File Upload for Resumes
 st.sidebar.markdown("## Upload Resumes PDF")
-resumes_files = st.sidebar.file_uploader(
-    "Upload Resumes PDF", type=["pdf"], accept_multiple_files=True)
+resumes_files = st.sidebar.file_uploader("Upload Resumes PDF", type=["pdf"], accept_multiple_files=True)
 
 if resumes_files:
     # Sidebar - File Upload for Job Descriptions
     st.sidebar.markdown("## Upload Job Description PDF")
-    job_descriptions_file = st.sidebar.file_uploader(
-        "Upload Job Description PDF", type=["pdf"])
+    job_descriptions_file = st.sidebar.file_uploader("Upload Job Description PDF", type=["pdf"])
 
     if job_descriptions_file:
-        
         # Backend Processing
         job_description_text = extract_text_from_pdf(job_descriptions_file)
-        resumes_texts = [extract_text_from_pdf(
-            resume_file) for resume_file in resumes_files]
+        resumes_texts = [extract_text_from_pdf(resume_file) for resume_file in resumes_files]
         job_description_text = extract_text_from_pdf(job_descriptions_file)
         job_description_tokens = tokenize_text(job_description_text, nlp)
-
-        # st.subheader("Matching Keywords")
 
         # Initialize counters
         overall_skill_matches = 0
@@ -191,8 +167,7 @@ if resumes_files:
             overall_qualification_matches += qualificationMatch
 
             # Add count of matched skills for this resume to the list
-            skills_counts_all_resumes.append(
-                [resume_text.count(skill.lower()) for skill in job_skills])
+            skills_counts_all_resumes.append([resume_text.count(skill.lower()) for skill in job_skills])
 
             # Create a dictionary for the current resume and append to the results list
             result_dict = {
@@ -212,8 +187,7 @@ if resumes_files:
         # Display overall matches
         st.subheader("Overall Matches")
         st.write(f"Total Skill Matches: {overall_skill_matches}")
-        st.write(
-            f"Total Qualification Matches: {overall_qualification_matches}")
+        st.write(f"Total Qualification Matches: {overall_qualification_matches}")
         st.write(f"Job Qualifications: {job_qualifications}")
         st.write(f"Job Skills: {job_skills}")
 
@@ -221,19 +195,14 @@ if resumes_files:
         results_df = pd.DataFrame(results_list)
         st.subheader("Individual Results")
         st.dataframe(results_df)
-        tagged_resumes = [TaggedDocument(words=preprocess_text(
-            text), tags=[str(i)]) for i, text in enumerate(resumes_texts)]
+        tagged_resumes = [TaggedDocument(words=preprocess_text(text), tags=[str(i)]) for i, text in enumerate(resumes_texts)]
         model_resumes = train_doc2vec_model(tagged_resumes)
 
-
-        
         st.subheader("\nHeatmap:")
        
         # Get skills keywords from user input
-        skills_keywords_input = st.text_input(
-            "Enter skills keywords separated by commas (e.g., python, java, machine learning):")
-        skills_keywords = [skill.strip()
-                           for skill in skills_keywords_input.split(',') if skill.strip()]
+        skills_keywords_input = st.text_input("Enter skills keywords separated by commas (e.g., python, java, machine learning):")
+        skills_keywords = [skill.strip() for skill in skills_keywords_input.split(',') if skill.strip()]
 
         if skills_keywords:
             # Calculate the similarity score between each skill keyword and the resume text
@@ -241,20 +210,16 @@ if resumes_files:
             for resume_text in resumes_texts:
                 resume_text_similarity_scores = []
                 for skill in skills_keywords:
-                    similarity_score = calculate_similarity(
-                        model_resumes, resume_text, skill)
+                    similarity_score = calculate_similarity(model_resumes, resume_text, skill)
                     resume_text_similarity_scores.append(similarity_score)
                 skills_similarity_scores.append(resume_text_similarity_scores)
 
             # Create a DataFrame with the similarity scores and set the index to the names of the PDFs
-            skills_similarity_df = pd.DataFrame(
-                skills_similarity_scores, columns=skills_keywords, index=[resume_file.name for resume_file in resumes_files])
+            skills_similarity_df = pd.DataFrame(skills_similarity_scores, columns=skills_keywords, index=[resume_file.name for resume_file in resumes_files])
 
             # Plot the heatmap
             fig, ax = plt.subplots(figsize=(12, 8))
-
-            sns.heatmap(skills_similarity_df,
-                        cmap='YlGnBu', annot=True, fmt=".2f", ax=ax)
+            sns.heatmap(skills_similarity_df, cmap='YlGnBu', annot=True, fmt=".2f", ax=ax)
             ax.set_title('Heatmap for Skills Similarity')
             ax.set_xlabel('Skills')
             ax.set_ylabel('Resumes')
